@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 /**
- * Ipv4Client: take some data, encode in Ipv4 packet, send.
+ * Ipv4Client: take some data, encapsulate in Ipv4 packet, send.
  *
  * @author Cary Anderson
  */
@@ -40,33 +40,38 @@ public class Ipv4Client {
             }
         }
 
-
-
-        //send.add(());
-
-      /*  byte[] toSend = new byte[send.length];
-
-        for (int i = 0; i < send.length; i++) {
-            toSend[i] = (byte) send[i]; // Copy over from arraylist
-            //System.out.println("HEy beginning " + toSend[i]);
-            //System.out.println(toSend[i]);
-        }*/
-
         try {
             Socket socket = new Socket("45.50.5.238", 38003);
             Thread listenerThread = new Thread(new Listener(socket));
             listenerThread.start();
 
-            //sendLength(socket, 2);
-
+            /*
+            * Just send the data every 1.5 seconds.
+            * */
             Thread.sleep(500);
             sendLength(socket, 2);
             Thread.sleep(1500);
             sendLength(socket, 4);
             Thread.sleep(1500);
             sendLength(socket, 8);
-            //sendLength(socket, 8);
-            //sendLength(socket, 2);
+            Thread.sleep(1500);
+            sendLength(socket, 16);
+            Thread.sleep(1500);
+            sendLength(socket, 32);
+            Thread.sleep(1500);
+            sendLength(socket, 64);
+            Thread.sleep(1500);
+            sendLength(socket, 128);
+            Thread.sleep(1500);
+            sendLength(socket, 256);
+            Thread.sleep(1500);
+            sendLength(socket, 512);
+            Thread.sleep(1500);
+            sendLength(socket, 1024);
+            Thread.sleep(1500);
+            sendLength(socket, 2048);
+            Thread.sleep(1500);
+            sendLength(socket, 4096);
 
         } catch (IOException ioe) {
             ioe.printStackTrace();
@@ -75,6 +80,13 @@ public class Ipv4Client {
         }
     }
 
+    /**
+     * Send a packet with data length
+     * The data is 125
+     *
+     * @param sock The socket to send the data
+     * @param len The number of bytes to send as data
+     * */
     private static void sendLength(Socket sock, int len) {
 
         byte[] send = new byte[20+len];
@@ -83,8 +95,7 @@ public class Ipv4Client {
         b = (byte) (b << 4);
         b += 5;
 
-        // send.add((byte) 0b01001100); // Version 4 and 12 words
-        send[0] = b;
+        send[0] = b; // Version 4 and 5 words
         send[1] = 0; // TOS (Don't implement)
         send[2] = 0; // Total length
         send[3] = 22; // Total length
@@ -105,9 +116,13 @@ public class Ipv4Client {
         send[18] = (byte) 0x7b; // 127.0.0.1 (destination address)
         send[19] = (byte) 0x61; // 127.0.0.1 (destination address)
 
-        send[3] += len-2;
+        short length = (short) (22 + len - 2); // Quackulate the total length
+        byte right = (byte) (length & 0xff);
+        byte left = (byte) ((length >> 8) & 0xff);
+        send[2] = left;
+        send[3] = right;
 
-        short checksum = calculateChecksum(send);
+        short checksum = calculateChecksum(send); // Quackulate the checksum
 
         byte second = (byte) (checksum & 0xff);
         byte first = (byte) ((checksum >> 8) & 0xff);
@@ -134,21 +149,6 @@ public class Ipv4Client {
 
     }
 
-    private static byte strToByte(String str) {
-        return (byte)(int) Integer.valueOf(str, 2);
-    }
-
-    private static long checksum(byte[] data) {
-        long sum = 0;
-
-        for (int i = 0; i < data.length; i++) {
-            sum &= 0xFFFF;
-            sum++;
-        }
-
-        return ~(sum & 0xFFFF);
-    }
-
     /**
      * Concatenate one array with another
      *
@@ -167,64 +167,42 @@ public class Ipv4Client {
     }
 
     /**
-     * Arg, I'm a pirate..
+     * Calculate internet checksum
      *
+     * @param array Packet to compute the checksum
+     * @return The checksum
      * */
-    public static short calculateChecksum(byte[] buf) {
-        int length = buf.length;
+    public static short calculateChecksum(byte[] array) {
+        int length = array.length;
         int i = 0;
 
-        long sum = 0;
-        long data;
+        int sum = 0;
+        int data;
 
-        // Handle all pairs
+        // Count down
         while (length > 1) {
-            // Corrected to include @Andy's edits and various comments on Stack Overflow
-            data = (((buf[i] << 8) & 0xFF00) | ((buf[i + 1]) & 0xFF));
+            data = (((array[i] << 8) & 0xFF00) | ((array[i + 1]) & 0xFF));
             sum += data;
-            // 1's complement carry bit correction in 16-bits (detecting sign extension)
+
             if ((sum & 0xFFFF0000) > 0) {
                 sum = sum & 0xFFFF;
                 sum += 1;
             }
 
-            i += 2;
-            length -= 2;
+            i = i + 2;
+            length = length - 2;
         }
 
-        // Handle remaining byte in odd length buffers
         if (length > 0) {
-            // Corrected to include @Andy's edits and various comments on Stack Overflow
-            sum += (buf[i] << 8 & 0xFF00);
-            // 1's complement carry bit correction in 16-bits (detecting sign extension)
+            sum += (array[i] << 8 & 0xFF00);
             if ((sum & 0xFFFF0000) > 0) {
-                sum = sum & 0xFFFF;
+                sum = sum & 0x0000FFFF;
                 sum += 1;
             }
         }
 
-        // Final 1's complement value correction to 16-bits
         sum = ~sum;
         sum = sum & 0xFFFF;
         return (short) sum;
-
     }
 }
-
-/*
-u_short cksum(u_short *buf, int count)
-{
-    register u_long sum = 0;
-    while (count--)
-    {
-        sum += *buf++;
-        if (sum & 0xFFFF0000)
-        {
-            // carry occurred. so wrap around
-            sum &= 0xFFFF;
-            sum++;
-        }
-    }
-    return ~(sum & 0xFFFF);
-}
-*/
