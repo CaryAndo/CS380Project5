@@ -35,63 +35,12 @@ public class Ipv4Client {
                         System.out.println("Received: " + readstring);
                     }
                 } catch (IOException ioe) {
-                    ioe.printStackTrace();
+                    //ioe.printStackTrace();
                 }
             }
         }
 
-        byte[] send = new byte[26];
 
-
-        byte b = 4;
-        b = (byte) (b << 4);
-        b += 5;
-
-        // send.add((byte) 0b01001100); // Version 4 and 12 words
-        send[0] = b;
-        send[1] = 0; // TOS (Don't implement)
-        send[2] = 0; // Total length
-        send[3] = 0; // Total length
-        send[4] = 0; // Identification (Don't implement)
-        send[5] = 0; // Identification (Don't implement)
-        send[6] = (byte) 0b01000000; // Flags and first part of Fragment offset
-        send[7] = (byte) 0b00000000; // Fragment offset
-        send[8] = 50; // TTL = 50
-        send[9] = 0x06; // Protocol (TCP = 6)
-        send[10] = 0; // CHECKSUM
-        send[11] = 0; // CHECKSUM
-        send[12] = (byte) 127; // 127.0.0.1 (source address)
-        send[13] = (byte) 0; // 127.0.0.1 (source address)
-        send[14] = (byte) 0; // 127.0.0.1 (source address)
-        send[15] = (byte) 1; // 127.0.0.1 (source address)
-        send[16] = (byte) 127; // 127.0.0.1 (destination address)
-        send[17] = (byte) 0; // 127.0.0.1 (destination address)
-        send[18] = (byte) 0; // 127.0.0.1 (destination address)
-        send[19] = (byte) 1; // 127.0.0.1 (destination address)
-        send[20] = (byte) 0; // Options (Don't implement)
-        send[21] = (byte) 0; // Options (Don't implement)
-        send[22] = (byte) 0; // Options (Don't implement)
-        send[23] = (byte) 0; // Options (Don't implement)
-
-        short checksum = calculateChecksum(send);
-
-        //byte second = (byte) (checksum & 0xff);
-        //byte first = (byte) ((checksum >> 8) & 0xff);
-        System.out.println("HELLO CHECKSUM! 0x" + Integer.toString(checksum, 16));
-
-        ByteBuffer buffer = ByteBuffer.allocate(2);
-        buffer.putShort(checksum);
-        //byte first = buffer.array()[0];
-        //byte second = buffer.array()[1] & 0xff;
-
-        byte[] arr=new byte[]{(byte)((checksum>>8)&0xFF),(byte)(checksum&0xFF)};
-
-        System.out.println("HELLO CHECKSUM! 0x" + Integer.toString(arr[0], 16));
-        System.out.println("HELLO CHECKSUM! 0x" + Integer.toString(arr[1], 2));
-
-
-        send[24] = (byte) 125; // Test data
-        send[25] = (byte) 125; // Test data*/
 
         //send.add(());
 
@@ -108,14 +57,81 @@ public class Ipv4Client {
             Thread listenerThread = new Thread(new Listener(socket));
             listenerThread.start();
 
-            OutputStream os = socket.getOutputStream();
+            //sendLength(socket, 2);
 
-            os.write(send);
-            os.flush();
+            Thread.sleep(500);
+            sendLength(socket, 2);
+            Thread.sleep(1500);
+            sendLength(socket, 4);
+            Thread.sleep(1500);
+            sendLength(socket, 8);
+            //sendLength(socket, 8);
+            //sendLength(socket, 2);
 
         } catch (IOException ioe) {
             ioe.printStackTrace();
+        } catch (Exception e) {
+            // I don't give a shit
         }
+    }
+
+    private static void sendLength(Socket sock, int len) {
+
+        byte[] send = new byte[20+len];
+
+        byte b = 4;
+        b = (byte) (b << 4);
+        b += 5;
+
+        // send.add((byte) 0b01001100); // Version 4 and 12 words
+        send[0] = b;
+        send[1] = 0; // TOS (Don't implement)
+        send[2] = 0; // Total length
+        send[3] = 22; // Total length
+        send[4] = 0; // Identification (Don't implement)
+        send[5] = 0; // Identification (Don't implement)
+        send[6] = (byte) 0b01000000; // Flags and first part of Fragment offset
+        send[7] = (byte) 0b00000000; // Fragment offset
+        send[8] = 50; // TTL = 50
+        send[9] = 0x06; // Protocol (TCP = 6)
+        send[10] = 0; // CHECKSUM
+        send[11] = 0; // CHECKSUM
+        send[12] = (byte) 127; // 127.0.0.1 (source address)
+        send[13] = (byte) 0; // 127.0.0.1 (source address)
+        send[14] = (byte) 0; // 127.0.0.1 (source address)
+        send[15] = (byte) 1; // 127.0.0.1 (source address)
+        send[16] = (byte) 0x4c; // 127.0.0.1 (destination address)
+        send[17] = (byte) 0x5b; // 127.0.0.1 (destination address)
+        send[18] = (byte) 0x7b; // 127.0.0.1 (destination address)
+        send[19] = (byte) 0x61; // 127.0.0.1 (destination address)
+
+        send[3] += len-2;
+
+        short checksum = calculateChecksum(send);
+
+        byte second = (byte) (checksum & 0xff);
+        byte first = (byte) ((checksum >> 8) & 0xff);
+        send[10] = first;
+        send[11] = second;
+
+
+        for (int i = 0; i < len; i++) {
+            send[i+20] = (byte) 125;
+        }
+
+        for (byte be : send) {
+            System.out.println(be);
+        }
+
+        try {
+            OutputStream os = sock.getOutputStream();
+
+            os.write(send);
+            os.flush();
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+
     }
 
     private static byte strToByte(String str) {
