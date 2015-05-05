@@ -1,15 +1,11 @@
 import java.io.*;
 import java.net.Socket;
-import java.net.SocketException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 
 /**
- * Ipv4Client: take some data, encapsulate in Ipv4 packet, send.
- *
+
  * @author Cary Anderson
  */
-public class Ipv4Client {
+public class UdpClient {
 
     public static void main(String[] args) {
 
@@ -25,7 +21,7 @@ public class Ipv4Client {
             public void run() {
                 try {
                     InputStream is = socket.getInputStream();
-                    InputStreamReader isr = new InputStreamReader(is);
+                    InputStreamReader isr = new InputStreamReader(is, "UTF-8");
                     BufferedReader in = new BufferedReader(isr);
                     String readstring;
                     while (true) {
@@ -41,42 +37,27 @@ public class Ipv4Client {
         }
 
         try {
-            Socket socket = new Socket("45.50.5.238", 38003);
-            Thread listenerThread = new Thread(new Listener(socket));
-            listenerThread.start();
+            Socket socket = new Socket("45.50.5.238", 38005);
+            InputStream is = socket.getInputStream();
 
-            /*
-            * Just send the data every 1.5 seconds.
-            * */
-            Thread.sleep(500);
+            Listener listener = new Listener(socket);
+            Thread t = new Thread(listener);
+            //t.start();
+
+            // Thread.sleep(500);
             sendLength(socket, 2);
-            Thread.sleep(1500);
-            sendLength(socket, 4);
-            Thread.sleep(1500);
-            sendLength(socket, 8);
-            Thread.sleep(1500);
-            sendLength(socket, 16);
-            Thread.sleep(1500);
-            sendLength(socket, 32);
-            Thread.sleep(1500);
-            sendLength(socket, 64);
-            Thread.sleep(1500);
-            sendLength(socket, 128);
-            Thread.sleep(1500);
-            sendLength(socket, 256);
-            Thread.sleep(1500);
-            sendLength(socket, 512);
-            Thread.sleep(1500);
-            sendLength(socket, 1024);
-            Thread.sleep(1500);
-            sendLength(socket, 2048);
-            Thread.sleep(1500);
-            sendLength(socket, 4096);
+
+            int a =  is.read();
+            int b =  is.read();
+            int c =  is.read();
+            int d =  is.read();
+
+            System.out.println("0x" + Integer.toString(a, 16) + Integer.toString(b, 16) + Integer.toString(c, 16) + Integer.toString(d, 16));
 
         } catch (IOException ioe) {
             ioe.printStackTrace();
         } catch (Exception e) {
-            // I don't give a shit
+            // nom
         }
     }
 
@@ -104,17 +85,17 @@ public class Ipv4Client {
         send[6] = (byte) 0b01000000; // Flags and first part of Fragment offset
         send[7] = (byte) 0b00000000; // Fragment offset
         send[8] = 50; // TTL = 50
-        send[9] = 0x06; // Protocol (TCP = 6)
+        send[9] = 0x6; // Protocol (TCP = 6)
         send[10] = 0; // CHECKSUM
         send[11] = 0; // CHECKSUM
         send[12] = (byte) 127; // 127.0.0.1 (source address)
         send[13] = (byte) 0; // 127.0.0.1 (source address)
         send[14] = (byte) 0; // 127.0.0.1 (source address)
         send[15] = (byte) 1; // 127.0.0.1 (source address)
-        send[16] = (byte) 0x4c; // 127.0.0.1 (destination address)
-        send[17] = (byte) 0x5b; // 127.0.0.1 (destination address)
-        send[18] = (byte) 0x7b; // 127.0.0.1 (destination address)
-        send[19] = (byte) 0x61; // 127.0.0.1 (destination address)
+        send[16] = (byte) 0x2d; // 127.0.0.1 (destination address)
+        send[17] = (byte) 0x32; // 127.0.0.1 (destination address)
+        send[18] = (byte) 0x5; // 127.0.0.1 (destination address)
+        send[19] = (byte) 0xee; // 127.0.0.1 (destination address)
 
         short length = (short) (22 + len - 2); // Quackulate the total length
         byte right = (byte) (length & 0xff);
@@ -146,7 +127,67 @@ public class Ipv4Client {
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
+    }
 
+    private static void sendHandShake(Socket sock) {
+
+        byte[] send = new byte[20+4];
+
+        byte b = 4;
+        b = (byte) (b << 4);
+        b += 5;
+
+        send[0] = b; // Version 4 and 5 words
+        send[1] = 0; // TOS (Don't implement)
+        send[2] = 0; // Total length
+        send[3] = 22; // Total length
+        send[4] = 0; // Identification (Don't implement)
+        send[5] = 0; // Identification (Don't implement)
+        send[6] = (byte) 0b01000000; // Flags and first part of Fragment offset
+        send[7] = (byte) 0b00000000; // Fragment offset
+        send[8] = 50; // TTL = 50
+        send[9] = 0x11; // Protocol (TCP = 6)
+        send[10] = 0; // CHECKSUM
+        send[11] = 0; // CHECKSUM
+        send[12] = (byte) 127; // 127.0.0.1 (source address)
+        send[13] = (byte) 0; // 127.0.0.1 (source address)
+        send[14] = (byte) 0; // 127.0.0.1 (source address)
+        send[15] = (byte) 1; // 127.0.0.1 (source address)
+        send[16] = (byte) 0x2d; // 127.0.0.1 (destination address)
+        send[17] = (byte) 0x32; // 127.0.0.1 (destination address)
+        send[18] = (byte) 0x5; // 127.0.0.1 (destination address)
+        send[19] = (byte) 0xee; // 127.0.0.1 (destination address)
+
+        short length = (short) (22 + 4 - 2); // Quackulate the total length
+        byte right = (byte) (length & 0xff);
+        byte left = (byte) ((length >> 8) & 0xff);
+        send[2] = left;
+        send[3] = right;
+
+        short checksum = calculateChecksum(send); // Quackulate the checksum
+
+        byte second = (byte) (checksum & 0xff);
+        byte first = (byte) ((checksum >> 8) & 0xff);
+        send[10] = first;
+        send[11] = second;
+
+        send[20] = (byte) 0xDE;
+        send[21] = (byte) 0xAD;
+        send[22] = (byte) 0xBE;
+        send[23] = (byte) 0xEF;
+
+        for (byte be : send) {
+            System.out.println(be);
+        }
+
+        try {
+            OutputStream os = sock.getOutputStream();
+
+            os.write(send);
+            os.flush();
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
     }
 
     /**
